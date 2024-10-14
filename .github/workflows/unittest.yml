@@ -25,4 +25,4 @@ jobs:
       - name: unittest
         run: |
           python -m pip install -r tests/requirements.txt
-          python -m unittest
+          python -m unittest -v --failfast
