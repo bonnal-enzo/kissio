@@ -26,6 +26,7 @@ from typing import (
     Union,
     cast,
 )
+import weakref
 
 from streamable.util.functiontools import catch_and_raise_as
 
@@ -401,12 +402,13 @@ class ConcurrentMappingIterable(
         self.buffer_size = buffer_size
         self.ordered = ordered
 
-    def _context_manager(self) -> ContextManager:
+    @property
+    def _context_manager(self) -> Callable[[], Optional[ContextManager]]:
         @contextmanager
         def dummy_context_manager_generator():
             yield
 
-        return dummy_context_manager_generator()
+        return lambda: dummy_context_manager_generator()
 
     @abstractmethod
     def _launch_task(
@@ -420,7 +422,11 @@ class ConcurrentMappingIterable(
     ) -> FutureResultCollection[Union[U, RaisingIterator.ExceptionContainer]]: ...
 
     def __iter__(self) -> Iterator[Union[U, RaisingIterator.ExceptionContainer]]:
-        with self._context_manager():
+        context_manager = self._context_manager()
+        if context_manager is None:
+            raise ValueError("context manager is None")
+
+        with context_manager:
             future_results = self._future_result_collection()
 
             # queue tasks up to buffer_size
@@ -452,12 +458,13 @@ class OSConcurrentMappingIterable(ConcurrentMappingIterable[T, U]):
         self.executor: Executor
         self.via_processes = via_processes
 
-    def _context_manager(self) -> ContextManager:
+    @property
+    def _context_manager(self) -> Callable[[], Optional[ContextManager]]:
         if self.via_processes:
             self.executor = ProcessPoolExecutor(max_workers=self.concurrency)
         else:
             self.executor = ThreadPoolExecutor(max_workers=self.concurrency)
-        return self.executor
+        return weakref.ref(self.executor)
 
     # picklable
     @staticmethod

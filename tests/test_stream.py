@@ -360,11 +360,7 @@ class TestStream(unittest.TestCase):
     )
     def test_process_concurrency(
         self, ordered, order_mutation
-    ) -> None:  # pragma: no cover
-        import sys
-
-        if sys.version < "3.9.0":
-            return
+    ) -> None:
 
         lambda_identity = lambda x: x * 10
 
