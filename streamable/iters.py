@@ -402,32 +402,32 @@ class ConcurrentMappingIterable(
         self.buffer_size = buffer_size
         self.ordered = ordered
 
-    @property
-    def _context_manager(self) -> Callable[[], Optional[ContextManager]]:
+    # factory method
+    def _new_context_manager(self) -> Optional[ContextManager]:
         @contextmanager
         def dummy_context_manager_generator():
             yield
 
-        return lambda: dummy_context_manager_generator()
+        return dummy_context_manager_generator()
+
+    # factory method
+    @abstractmethod
+    def _new_future_result_collection(
+        self,
+    ) -> FutureResultCollection[Union[U, RaisingIterator.ExceptionContainer]]: ...
 
     @abstractmethod
     def _launch_task(
         self, elem: T
     ) -> "Future[Union[U, RaisingIterator.ExceptionContainer]]": ...
 
-    # factory method
-    @abstractmethod
-    def _future_result_collection(
-        self,
-    ) -> FutureResultCollection[Union[U, RaisingIterator.ExceptionContainer]]: ...
-
     def __iter__(self) -> Iterator[Union[U, RaisingIterator.ExceptionContainer]]:
-        context_manager = self._context_manager()
+        context_manager = self._new_context_manager()
         if context_manager is None:
             raise ValueError("context manager is None")
 
         with context_manager:
-            future_results = self._future_result_collection()
+            future_results = self._new_future_result_collection()
 
             # queue tasks up to buffer_size
             with suppress(StopIteration):
@@ -459,7 +459,7 @@ class OSConcurrentMappingIterable(ConcurrentMappingIterable[T, U]):
         self.via_processes = via_processes
 
     @property
-    def _context_manager(self) -> Callable[[], Optional[ContextManager]]:
+    def _new_context_manager(self) -> Callable[[], Optional[ContextManager]]:
         if self.via_processes:
             self.executor = ProcessPoolExecutor(max_workers=self.concurrency)
         else:
@@ -483,7 +483,7 @@ class OSConcurrentMappingIterable(ConcurrentMappingIterable[T, U]):
             self._safe_transformation, self.transformation, elem
         )
 
-    def _future_result_collection(
+    def _new_future_result_collection(
         self,
     ) -> FutureResultCollection[Union[U, RaisingIterator.ExceptionContainer]]:
         if self.ordered:
@@ -524,7 +524,7 @@ class AsyncConcurrentMappingIterable(ConcurrentMappingIterable[T, U]):
             asyncio.get_event_loop().create_task(self._safe_transformation(elem)),
         )
 
-    def _future_result_collection(
+    def _new_future_result_collection(
         self,
     ) -> FutureResultCollection[Union[U, RaisingIterator.ExceptionContainer]]:
         if self.ordered:
