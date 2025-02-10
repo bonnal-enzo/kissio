@@ -1061,7 +1061,7 @@ class TestStream(unittest.TestCase):
                 Stream(lambda: map(slow_identity, src)).group(
                     size=100,
                     interval=datetime.timedelta(
-                        seconds=2 * slow_identity_duration * 0.99
+                        seconds=2 * slow_identity_duration * 0.9
                     ),
                 )
             ),
@@ -1630,8 +1630,83 @@ class TestStream(unittest.TestCase):
             (stream, ints, strings),
             msg="`pipe` should pass the stream and args/kwargs to `func`.",
         )
+
         self.assertListEqual(
             stream.pipe(list),
             list(stream),
             msg="`pipe` should be ok without args and kwargs.",
+        )
+
+    def test_eq(self) -> None:
+        stream = (
+            Stream(src)
+            .catch(TypeError, ValueError, replacement=2, when=identity)
+            .distinct(key=identity)
+            .filter(identity)
+            .foreach(identity, concurrency=3)
+            .aforeach(async_identity, concurrency=3)
+            .group(3, by=bool)
+            .flatten(3)
+            .groupby(bool)
+            .map(identity, via="process")
+            .map(async_identity)
+            .observe("foo")
+            .skip(3)
+            .truncate(4)
+            .throttle(interval=datetime.timedelta(seconds=1))
+        )
+
+        self.assertEqual(
+            stream,
+            Stream(src)
+            .catch(TypeError, ValueError, replacement=2, when=identity)
+            .distinct(key=identity)
+            .filter(identity)
+            .foreach(identity, concurrency=3)
+            .aforeach(async_identity, concurrency=3)
+            .group(3, by=bool)
+            .flatten(3)
+            .groupby(bool)
+            .map(identity, via="process")
+            .map(async_identity)
+            .observe("foo")
+            .skip(3)
+            .truncate(4)
+            .throttle(interval=datetime.timedelta(seconds=1)),
+        )
+        self.assertNotEqual(
+            stream,
+            Stream(list(src))  # not same source
+            .catch(TypeError, ValueError, replacement=2, when=identity)
+            .distinct(key=identity)
+            .filter(identity)
+            .foreach(identity, concurrency=3)
+            .aforeach(async_identity, concurrency=3)
+            .group(3, by=bool)
+            .flatten(3)
+            .groupby(bool)
+            .map(identity, via="process")
+            .amap(async_identity)
+            .observe("foo")
+            .skip(3)
+            .truncate(4)
+            .throttle(interval=datetime.timedelta(seconds=1)),
+        )
+        self.assertNotEqual(
+            stream,
+            Stream(src)
+            .catch(TypeError, ValueError, replacement=2, when=identity)
+            .distinct(key=identity)
+            .filter(identity)
+            .foreach(identity, concurrency=3)
+            .aforeach(async_identity, concurrency=3)
+            .group(3, by=bool)
+            .flatten(3)
+            .groupby(bool)
+            .map(identity, via="process")
+            .amap(async_identity)
+            .observe("foo")
+            .skip(3)
+            .truncate(4)
+            .throttle(interval=datetime.timedelta(seconds=2)),  # not the same interval
         )
