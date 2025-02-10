@@ -101,10 +101,31 @@ class Stream(Iterable[T]):
 
         return self.accept(ReprVisitor())
 
+    def __eq__(self, other: Any) -> bool:
+        """
+        Whether this stream has the same definition as another one.
+
+        Returns:
+            bool: True if this stream is the same as the other one.
+        """
+        from streamable.visitors.equality import EqualityVisitor
+
+        return self.accept(EqualityVisitor(other))
+
     def __str__(self) -> str:
         from streamable.visitors.representation import StrVisitor
 
         return self.accept(StrVisitor())
+
+    def __call__(self) -> "Stream[T]":
+        """
+        Iterates over this stream until exhaustion.
+
+        Returns:
+            Stream[T]: self.
+        """
+        self.count()
+        return self
 
     def accept(self, visitor: "Visitor[V]") -> V:
         """
@@ -151,16 +172,6 @@ class Stream(Iterable[T]):
         """
 
         return sum(1 for _ in self)
-
-    def __call__(self) -> "Stream[T]":
-        """
-        Iterates over this stream until exhaustion.
-
-        Returns:
-            Stream[T]: self.
-        """
-        self.count()
-        return self
 
     def display(self, level: int = logging.INFO) -> "Stream[T]":
         """
